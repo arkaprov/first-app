@@ -1,0 +1,545 @@
+Thank you for sharing the details of how you initialized your Spring Boot project and your current setup (JDK, Eclipse, and Spring Boot 3.5.5 with Java 24). Since you've provided the complete NexaDoc codebase and the additional code for the new `/api/v1/landing-page/search` endpoint, I’ll guide you step-by-step on how to integrate the provided code into your Spring Boot project and proceed with running and testing it. I’ll also address how to set up the necessary dependencies, database, and configurations to align with the NexaDoc codebase, assuming you want to incorporate the new endpoint into a similar project structure.
+
+### Step-by-Step Guide to Implement the Search Endpoint in Your Spring Boot Project
+
+#### 1. **Set Up Your Project Structure**
+Since you’ve initialized a basic Spring Boot project using Spring Initializr without dependencies, you’ll need to add the dependencies required by the NexaDoc codebase to support the search endpoint, database operations, and other features. Below, I’ll outline the steps to update your project and add the provided code.
+
+1. **Update `pom.xml` with Required Dependencies**
+   The NexaDoc codebase uses Spring Data JPA, Flyway, PostgreSQL, Lombok, Swagger, and Firebase. Update your `pom.xml` to include these dependencies:
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <project xmlns="http://maven.apache.org/POM/4.0.0"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+       <modelVersion>4.0.0</modelVersion>
+       <groupId>com.arka.core</groupId>
+       <artifactId>Spring-core-concepts</artifactId>
+       <version>0.0.1-SNAPSHOT</version>
+       <name>Spring-core-concepts</name>
+       <description>Demo project for Spring Boot</description>
+
+       <parent>
+           <groupId>org.springframework.boot</groupId>
+           <artifactId>spring-boot-starter-parent</artifactId>
+           <version>3.3.5</version>
+           <relativePath/>
+       </parent>
+
+       <properties>
+           <java.version>24</java.version>
+       </properties>
+
+       <dependencies>
+           <!-- Spring Boot Web -->
+           <dependency>
+               <groupId>org.springframework.boot</groupId>
+               <artifactId>spring-boot-starter-web</artifactId>
+           </dependency>
+           <!-- Spring Data JPA -->
+           <dependency>
+               <groupId>org.springframework.boot</groupId>
+               <artifactId>spring-boot-starter-data-jpa</artifactId>
+           </dependency>
+           <!-- PostgreSQL Driver -->
+           <dependency>
+               <groupId>org.postgresql</groupId>
+               <artifactId>postgresql</artifactId>
+               <scope>runtime</scope>
+           </dependency>
+           <!-- Flyway for Database Migrations -->
+           <dependency>
+               <groupId>org.flywaydb</groupId>
+               <artifactId>flyway-core</artifactId>
+           </dependency>
+           <!-- Lombok -->
+           <dependency>
+               <groupId>org.projectlombok</groupId>
+               <artifactId>lombok</artifactId>
+               <optional>true</optional>
+           </dependency>
+           <!-- Swagger/OpenAPI -->
+           <dependency>
+               <groupId>org.springdoc</groupId>
+               <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+               <version>2.6.0</version>
+           </dependency>
+           <!-- JSON Simple for ResponseBuilder -->
+           <dependency>
+               <groupId>com.googlecode.json-simple</groupId>
+               <artifactId>json-simple</artifactId>
+               <version>1.1.1</version>
+           </dependency>
+           <!-- QueryDSL for custom queries -->
+           <dependency>
+               <groupId>com.querydsl</groupId>
+               <artifactId>querydsl-jpa</artifactId>
+               <version>5.1.0</version>
+               <classifier>jakarta</classifier>
+           </dependency>
+           <dependency>
+               <groupId>com.querydsl</groupId>
+               <artifactId>querydsl-apt</artifactId>
+               <version>5.1.0</version>
+               <classifier>jakarta</classifier>
+               <scope>provided</scope>
+           </dependency>
+       </dependencies>
+
+       <build>
+           <plugins>
+               <plugin>
+                   <groupId>org.springframework.boot</groupId>
+                   <artifactId>spring-boot-maven-plugin</artifactId>
+                   <configuration>
+                       <excludes>
+                           <exclude>
+                               <groupId>org.projectlombok</groupId>
+                               <artifactId>lombok</artifactId>
+                           </exclude>
+                       </excludes>
+                   </configuration>
+               </plugin>
+               <!-- QueryDSL APT Processor -->
+               <plugin>
+                   <groupId>com.mysema.maven</groupId>
+                   <artifactId>apt-maven-plugin</artifactId>
+                   <version>1.1.3</version>
+                   <executions>
+                       <execution>
+                           <goals>
+                               <goal>process</goal>
+                           </goals>
+                           <configuration>
+                               <processor>com.querydsl.apt.jpa.JPAAnnotationProcessor</processor>
+                               <outputDirectory>target/generated-sources/java</outputDirectory>
+                           </configuration>
+                       </execution>
+                   </executions>
+               </plugin>
+           </plugins>
+       </build>
+   </project>
+   ```
+
+   **Note**: The Firebase dependency is excluded because the search endpoint doesn’t require it. If you plan to integrate other NexaDoc features (e.g., avatar upload), add Firebase dependencies later.
+
+2. **Create Package Structure**
+   In `src/main/java`, create the following package structure to match NexaDoc:
+   ```
+   com.arka.core
+   ├── controller
+   ├── dto
+   ├── entity
+   ├── repository
+   ├── service
+   │   └── impl
+   └── utils
+   ```
+
+3. **Add Provided Code Files**
+   Copy the provided code into the appropriate packages:
+   - **Entity**: Add `Document.java` to `com.arka.core.entity`.
+   - **DTO**: Add `DocumentDto.java` to `com.arka.core.dto`.
+   - **Repository**: Add `DocumentRepository.java` to `com.arka.core.repository`.
+   - **Service**: Add `DocumentService.java` to `com.arka.core.service`.
+   - **Service Implementation**: Add `DocumentServiceImpl.java` to `com.arka.core.service.impl`.
+   - **Controller**: Add `LandingPageController.java` to `com.arka.core.controller`.
+
+4. **Add Utility Classes**
+   The `ResponseBuilder` and `ResponseType` classes from NexaDoc are required for the controller’s response format. Add them to `com.arka.core.utils`:
+
+   ```java
+   // src/main/java/com/arka/core/utils/ResponseType.java
+   package com.arka.core.utils;
+
+   public enum ResponseType {
+       DATA,
+       ERROR
+   }
+   ```
+
+   ```java
+   // src/main/java/com/arka/core/utils/ResponseBuilder.java
+   package com.arka.core.utils;
+
+   import org.json.simple.JSONObject;
+   import lombok.Data;
+
+   import java.util.HashMap;
+   import java.util.Map;
+
+   @Data
+   public class ResponseBuilder implements Response {
+
+       private final ResponseType type;
+       private String status = null;
+       private Object data = null;
+       private Object meta = null;
+       private String message = null;
+       private Object errors = null;
+
+       public ResponseBuilder(ResponseType type) {
+           this.type = type;
+       }
+
+       public static ResponseBuilder success(Object data) {
+           ResponseBuilder response = new ResponseBuilder(ResponseType.DATA);
+           response.data = data;
+           response.status = "success";
+           return response;
+       }
+
+       public static ResponseBuilder success(Object data, String message) {
+           ResponseBuilder response = new ResponseBuilder(ResponseType.DATA);
+           response.data = data;
+           response.message = message;
+           response.status = "success";
+           return response;
+       }
+
+       public static ResponseBuilder error(Object errors) {
+           ResponseBuilder response = new ResponseBuilder(ResponseType.ERROR);
+           response.errors = errors;
+           response.status = "error";
+           return response;
+       }
+
+       public static ResponseBuilder error(Object errors, String message) {
+           ResponseBuilder response = new ResponseBuilder(ResponseType.ERROR);
+           response.errors = errors;
+           response.message = message;
+           response.status = "error";
+           return response;
+       }
+
+       @Override
+       public JSONObject getJson() {
+           Map<String, Object> maps = new HashMap<>();
+           switch (this.type) {
+               case DATA:
+                   maps.put("status", status);
+                   maps.put("data", data);
+                   maps.put("meta", meta);
+                   maps.put("message", message);
+                   break;
+               case ERROR:
+                   maps.put("status", status);
+                   maps.put("message", message);
+                   maps.put("errors", errors);
+                   break;
+           }
+           return new JSONObject(maps);
+       }
+   }
+   ```
+
+   ```java
+   // src/main/java/com/arka/core/utils/Response.java
+   package com.arka.core.utils;
+
+   import org.json.simple.JSONObject;
+
+   public interface Response {
+       JSONObject getJson();
+   }
+   ```
+
+5. **Add Database Migration**
+   Create the Flyway migration file for the `documents` table:
+   - Path: `src/main/resources/db/migration/V1__create_documents.sql`
+   - Content:
+     ```sql
+     CREATE TABLE IF NOT EXISTS documents (
+         id INT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+         title VARCHAR(255) NOT NULL,
+         description TEXT,
+         category VARCHAR(100),
+         created_at TIMESTAMP(6) WITH TIME ZONE NOT NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+         updated_at TIMESTAMP(6) WITH TIME ZONE NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+         deleted_at TIMESTAMP(6) WITH TIME ZONE NULL
+     );
+     ```
+
+6. **Update `application.yml`**
+   Configure your `application.yml` to include database settings and Flyway. Since NexaDoc uses PostgreSQL, ensure you have a PostgreSQL instance running (e.g., locally via Docker or a hosted service). Update `src/main/resources/application.yml`:
+
+   ```yaml
+   server:
+     port: 8000
+     error:
+       include-stacktrace: always
+     compression:
+       enabled: true
+     address: 0.0.0.0
+
+   spring:
+     jackson:
+       date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+       time-zone: UTC
+     application:
+       name: Spring-core-concepts
+     datasource:
+       url: jdbc:postgresql://localhost:5432/nexadoc
+       username: postgres
+       password: your_password
+       driver-class-name: org.postgresql.Driver
+       hikari:
+         minimum-idle: 1
+         maximum-pool-size: 15
+         idle-timeout: 30000
+         pool-name: HikariPostgresPool
+         max-lifetime: 2000000
+         auto-commit: true
+         transaction-isolation: TRANSACTION_READ_COMMITTED
+         connection-timeout: 30000
+     flyway:
+       enabled: true
+       baseline-on-migrate: true
+       validate-migration-naming: true
+       locations: classpath:db/migration
+       schemas: public
+     jpa:
+       hibernate:
+         ddl-auto: none
+       show-sql: true
+       open-in-view: false
+       properties:
+         hibernate.format_sql: true
+
+   logging:
+     level:
+       org.springdoc: DEBUG
+   ```
+
+   Replace `your_password` with your PostgreSQL password. If you’re using a different database setup, adjust `url`, `username`, and `password` accordingly.
+
+7. **Add Base Entities**
+   The `Document` entity extends `BaseEntityWithUpdateAndDelete`, which depends on `BaseEntity` and `BaseEntityWithUpdate`. Add these to `com.arka.core.entity`:
+
+   ```java
+   // src/main/java/com/arka/core/entity/BaseEntity.java
+   package com.arka.core.entity;
+
+   import com.fasterxml.jackson.annotation.JsonIgnore;
+   import jakarta.persistence.*;
+   import lombok.Getter;
+   import lombok.Setter;
+
+   import java.io.Serial;
+   import java.io.Serializable;
+   import java.time.OffsetDateTime;
+   import java.time.ZoneOffset;
+
+   @Getter
+   @Setter
+   @MappedSuperclass
+   public abstract class BaseEntity implements Serializable {
+
+       @Serial
+       private static final long serialVersionUID = 1L;
+
+       @Id
+       @GeneratedValue(strategy = GenerationType.IDENTITY)
+       @Column(name = "id")
+       private Integer id;
+
+       @JsonIgnore
+       @Column(name = "created_at", updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'UTC'")
+       protected OffsetDateTime createdAt;
+
+       @PrePersist
+       public void prePersist() {
+           this.createdAt = OffsetDateTime.now().withOffsetSameInstant(ZoneOffset.UTC);
+       }
+   }
+   ```
+
+   ```java
+   // src/main/java/com/arka/core/entity/BaseEntityWithUpdate.java
+   package com.arka.core.entity;
+
+   import com.fasterxml.jackson.annotation.JsonIgnore;
+   import jakarta.persistence.Column;
+   import jakarta.persistence.MappedSuperclass;
+   import jakarta.persistence.PreUpdate;
+   import lombok.Getter;
+   import lombok.Setter;
+
+   import java.io.Serial;
+   import java.time.OffsetDateTime;
+   import java.time.ZoneOffset;
+
+   @Getter
+   @Setter
+   @MappedSuperclass
+   public abstract class BaseEntityWithUpdate extends BaseEntity {
+
+       @Serial
+       private static final long serialVersionUID = 1L;
+
+       @JsonIgnore
+       @Column(name = "updated_at", columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'UTC'")
+       protected OffsetDateTime updatedAt;
+
+       @PreUpdate
+       public void preUpdate() {
+           this.updatedAt = OffsetDateTime.now().withOffsetSameInstant(ZoneOffset.UTC);
+       }
+   }
+   ```
+
+   ```java
+   // src/main/java/com/arka/core/entity/BaseEntityWithUpdateAndDelete.java
+   package com.arka.core.entity;
+
+   import com.fasterxml.jackson.annotation.JsonIgnore;
+   import jakarta.persistence.Column;
+   import jakarta.persistence.MappedSuperclass;
+   import jakarta.persistence.PreUpdate;
+   import lombok.Getter;
+   import lombok.Setter;
+
+   import java.time.OffsetDateTime;
+   import java.time.ZoneOffset;
+
+   @Getter
+   @Setter
+   @MappedSuperclass
+   public abstract class BaseEntityWithUpdateAndDelete extends BaseEntity {
+
+       @JsonIgnore
+       @Column(name = "updated_at", columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'UTC'")
+       private OffsetDateTime updatedAt;
+
+       @JsonIgnore
+       @Column(name = "deleted_at")
+       private OffsetDateTime deletedAt;
+
+       @PreUpdate
+       public void preUpdate() {
+           this.updatedAt = OffsetDateTime.now().withOffsetSameInstant(ZoneOffset.UTC);
+       }
+   }
+   ```
+
+8. **Update Application Class**
+   Ensure your main application class is set up to run the Spring Boot application:
+
+   ```java
+   // src/main/java/com/arka/core/SpringCoreConceptsApplication.java
+   package com.arka.core;
+
+   import org.springframework.boot.SpringApplication;
+   import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+   @SpringBootApplication
+   public class SpringCoreConceptsApplication {
+       public static void main(String[] args) {
+           SpringApplication.run(SpringCoreConceptsApplication.class, args);
+       }
+   }
+   ```
+
+#### 2. **Set Up PostgreSQL**
+1. **Install PostgreSQL**: If not installed, download and install PostgreSQL (e.g., from [postgresql.org](https://www.postgresql.org/)) or use Docker:
+   ```bash
+   docker run -d --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=your_password -e POSTGRES_DB=nexadoc postgres
+   ```
+2. **Create Database**: Connect to PostgreSQL (e.g., via `psql` or pgAdmin) and create the `nexadoc` database:
+   ```sql
+   CREATE DATABASE nexadoc;
+   ```
+3. **Verify Connectivity**: Ensure the `application.yml` database credentials match your PostgreSQL setup.
+
+#### 3. **Run Flyway Migration**
+When you start the application, Flyway will automatically apply the migration (`V1__create_documents.sql`) to create the `documents` table. Verify in your database that the table exists:
+```sql
+SELECT * FROM documents;
+```
+
+#### 4. **Insert Test Data**
+To test the search endpoint, insert sample data into the `documents` table:
+```sql
+INSERT INTO documents (title, description, category) VALUES 
+('Sample Doc 1', 'This is a test description for document 1', 'Category A'),
+('Sample Doc 2', 'Another description like this', 'Category B'),
+('Test Document', 'Description containing keyword', 'Test Category');
+```
+
+#### 5. **Run the Application**
+1. **In Eclipse**:
+   - Import the project: `File > Import > Maven > Existing Maven Projects`, select your project directory.
+   - Right-click the project > `Run As > Maven build`, use goal `clean install` to build.
+   - Right-click `SpringCoreConceptsApplication.java` > `Run As > Java Application`.
+2. **Verify**: The application should start on `http://localhost:8000`. Check console logs for Flyway migration and server startup.
+
+#### 6. **Test the Endpoint with Postman**
+Follow these steps to test the `/api/v1/landing-page/search` endpoint:
+
+1. **Open Postman**:
+   - Create a new request.
+2. **Configure Request**:
+   - **Method**: GET
+   - **URL**: `http://localhost:8000/api/v1/landing-page/search?query=sample`
+     - Replace `sample` with other terms like `doc`, `category`, or `test` to test different matches.
+   - **Headers**: No headers needed (endpoint is public as per NexaDoc’s `SecurityConfig` modification).
+   - **Params**:
+     - Key: `query`
+     - Value: `sample` (or any search term).
+3. **Send Request**:
+   - Click `Send` and verify the response.
+4. **Expected Response** (for `query=sample`):
+   ```json
+   {
+       "status": "success",
+       "data": [
+           {
+               "id": 1,
+               "title": "Sample Doc 1",
+               "description": "This is a test description for document 1",
+               "category": "Category A"
+           },
+           {
+               "id": 2,
+               "title": "Sample Doc 2",
+               "description": "Another description like this",
+               "category": "Category B"
+           }
+       ],
+       "message": "Documents searched successfully."
+   }
+   ```
+5. **Test Cases**:
+   - **Case Insensitive**: Try `query=SAMPLE` (should match “Sample Doc 1”).
+   - **Partial Match**: Try `query=doc` (should match titles with “Doc”).
+   - **Category Search**: Try `query=Category` (should match “Category A” and “Category B”).
+   - **No Results**: Try `query=nonexistent` (should return empty `data` array).
+   - **Missing Query**: Without `query` param, expect a 400 Bad Request (or modify `@RequestParam` to `required=false` for empty query handling).
+
+#### 7. **Optional: Add Swagger for API Testing**
+Since you’ve included `springdoc-openapi`, access Swagger UI to test the endpoint:
+- URL: `http://localhost:8000/swagger-ui.html`
+- Find the `/api/v1/landing-page/search` endpoint, click “Try it out”, enter a query, and execute.
+
+#### 8. **Troubleshooting**
+- **Build Errors**: Ensure all dependencies are resolved (`mvn clean install`).
+- **Database Errors**: Verify PostgreSQL is running and credentials match `application.yml`.
+- **Endpoint Not Found**: Ensure `SecurityConfig` includes `/api/v1/landing-page/**` in `PUBLIC_MATCHER`.
+- **No Data**: Confirm test data is inserted in the `documents` table.
+- **Logs**: Check Eclipse console or logs for errors (set `logging.level.root=DEBUG` in `application.yml` for detailed logs).
+
+### Additional Notes
+- **NexaDoc Integration**: The provided code aligns with NexaDoc’s structure (e.g., `ResponseBuilder`, entity hierarchy). If you want to integrate the full NexaDoc codebase, you’ll need to add Firebase, security, and other components. Let me know if you need guidance on that.
+- **Java 24**: Spring Boot 3.3.5 supports Java 24, but ensure your Eclipse and JDK are configured correctly (e.g., `JAVA_HOME` points to JDK 24).
+- **Lombok in Eclipse**: Install Lombok in Eclipse (`Help > Install New Software`, use `https://projectlombok.org/p2`), or you may see getter/setter errors.
+- **Pagination**: The provided endpoint doesn’t include pagination. If you want to add it (like `ReviewAndRatingController`), I can extend the code with `limit` and `offset` params.
+
+### Next Steps
+If you encounter issues or want to extend the functionality (e.g., pagination, authentication, additional fields), let me know! For example, you could ask:
+- “How do I add pagination to the search endpoint?”
+- “Can you help integrate Firebase for authentication?”
+- “I’m getting a specific error in Eclipse; here’s the stack trace…”
+
+Test the endpoint as described, and share any feedback or errors for further assistance!
