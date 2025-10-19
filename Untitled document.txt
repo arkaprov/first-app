@@ -1000,10 +1000,35 @@ in confg file in ansible -> [defaults] host_key_checking = False -> because mine
                      enabled: true
 
 
+If we just wanted to configure a simple apache server:
+---
+- name: Installing apache and running
+  hosts: all
+  tasks:
+    - name: configure a simple apache server
+      yum:
+        name: httpd
+        state: present
+
+    - name: Started Apache on my remote server
+      service:
+        name: httpd
+        state: started
+        enabled: true
+
+    - name: create index.html file
+      copy:
+        content: "Simple Apache Server."
+        dest: /var/www/html/index.html
+
+
+
+
 
 For checking syntax error -> ansible-playbook my-firstplaybook.yaml --syntax-check
 For dry run -> ansible-playbook my-firstplaybook.yaml -C 
 For actual run -> ansible-playbook my-firstplaybook.yaml
+Then allow port 80 on security group and check with worker node's public ip.
 
 
 
@@ -1363,59 +1388,58 @@ Making an instance with a new security group through terraform
 2. Make a tf file:
 
 provider "aws" {
-  region = "us-east-1"  # Replace with your desired region
+  region = "us-east-1"  # Replace with your desired region
 }
 
 # Create a new security group
 resource "aws_security_group" "my_sg" {
-  name        = "my-security-group"
-  description = "Security group for EC2 instances"
+  name        = "my-security-group"
+  description = "Security group for EC2 instances"
 
-  # Ingress rule for SSH
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow SSH from anywhere (restrict for production)
-  }
+  # Ingress rule for SSH
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # Allow SSH from anywhere (restrict for production)
+  }
 
-  # Ingress rule for HTTP (example)
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # Ingress rule for HTTP (example)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-  # Egress rule (allow all outbound traffic)
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # Egress rule (allow all outbound traffic)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-  tags = {
-    Name = "my-security-group"
-  }
+  tags = {
+    Name = "my-security-group"
+  }
 }
 
 # Launch two EC2 instances
 resource "aws_instance" "my_instance" {
-  count         = 2
-  ami           = "ami-0c55b159cbfafe1f0"  # Replace with a valid AMI for your region
-  instance_type = "t2.micro"
-  security_groups = [aws_security_group.my_sg.name]
+  count         = 2
+  ami           = "ami-0e86e20dae9224db8"  # Valid AMI for us-east-1 (Amazon Linux 2, as of 2025)
+  instance_type = "t2.micro"
+  security_groups = [aws_security_group.my_sg.name]
 
-  tags = {
-    Name = "instance-${count.index + 1}"
-  }
+  tags = {
+    Name = "instance-${count.index + 1}"
+  }
 }
 
 output "instance_ids" {
-  value = aws_instance.my_instance[*].id
+  value = aws_instance.my_instance[*].id
 }
-
 
 
 
@@ -1481,3 +1505,450 @@ output "key_pair_name" {
 output "private_key_path" {
   value = local_file.private_key.filename
 }
+
+
+
+
+
+
+
+
+
+
+
+Creating a custom VPC with terraform
+
+Creating users in IAM using terraform
+
+Creating variable VPC in teraform
+
+
+
+
+
+
+
+
+
+
+Nginx image on k8s cluster and it should be available on port 80
+
+1. subnet-068c6ca919d094394
+subnet-0b33844693b77ca44
+
+After eks cluster setup in ec2 instance,
+Make a dir -> vim pypod.yaml
+
+ 
+
+kubectl apply -f mypod.yaml
+kubectl expose pod nginx --type=LoadBalancer --port=80
+kubectl get svc
+kubectl get pods
+
+
+
+
+
+
+
+
+
+
+
+
+Git hub actions
+
+CI-CD workflow using github actions for aws s3
+
+reference link - https://medium.com/@bryant.logan1/ci-cd-workflow-using-github-actions-for-aws-s3-6e15bae5b2d0
+
+1. Jenkins is self-hosted, so more secure. not gh actions; managed by micrososft. 
+2. creat s3 bucket - gave name 'arka-github-actions-bucket' -> unblock all public access 
+s3bucket -> properties -> static web hosting -> enable -> static -> index.html
+Now bucket -> permissions -> bucket policy ->edit -> (give your bucket name here )
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "s3:GetObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::Bucket-Name/*"
+            ]
+        }
+    ]
+}
+3. create a GitHub repo : git@github.com:arkaprovolti/static-github-action-web-hosting-s3bucket.git
+4. Now that the bucket is properly set up, you can head over to the IAM console to create a user that GitHub will use to upload files to S3.
+5. 	Create user and give s3 full access -> create access key
+Now to go to secrets and variables of our created GitHub repo -> actions -> new repository secret -> create 3 screts->
+Now we’re going to add 3 secrets for the AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY
+
+AWS_S3_BUCKET -> bucket name
+
+now go to actions from our repo  -> set up a workflow yourself -> 
+
+name: Upload Website
+
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: jakejarvis/s3-sync-action@master
+      with:
+        args: --follow-symlinks --delete --exclude '.git*/*'
+      env:
+        SOURCE_DIR: ./
+        AWS_REGION: us-east-1
+        AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+
+
+create index.html in repo
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+S3 bucket access cross region
+
+Make 2 buckets each in North Virginia and Ohio. Make sure enabling aws versioning on both sides.
+Upload some objects on both buckets.
+Now take one bucket -> Management -> Replication Rules -> Destination -> if u r in North Virginia, select Ohio ->Yes -> 
+Now see bucket in ohio one
+
+
+
+
+
+S3 bucket lifecycle configuration
+Get into any bucket -> management -> Create lifecycle rule ->apply for all -> Lifecycle rule actions: Transition current versions of objects between storage classes ->day30 -standard 1a -> day 60 - intelligent tiering -> Day 90 One zone 1A -> Day 180 - Glacier flexible retrieval
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Provision an EKS cluster (AWS) using Terraform
+
+1. Go to  the terraform init directory
+2. Follow this tutorial - https://developer.hashicorp.com/terraform/tutorials/kubernetes/eks
+3. cd learn-terraform-provision-eks-cluster
+
+
+
+
+
+Deploy an nginx container to a fargate cluster and expose it to internet.
+
+1. Create ecs cluster
+2. Create a task definition - > ECS -> task definition -> create new task definition -> launch type - fargate -> container 1 -> image- nginx:latest
+3. Create a loadbalancer and target group -> EC2 -> Load balancer -> Target groups -> create target group -> target type - ip address -> protocol -http, port 80 ->
+
+4. Now create load balancer -> application load balancer ->nginx-lb
+5. Create ECS service -> select the cluster u created ->create service -> load balancing -> select your loadbalancer ->
+DNS from load balancer click 
+
+(Make sure the subnets in service should be same as the ones in availability zones in load balancer) (Can also access it without loadbalancer by getting intol cluster -> service -> task -> public ip:8080
+
+sir told us to containerize his maven app in docker and push it to ecr and deploy it to a fargate cluster and expose it to internet...treat that as HW
+
+
+
+
+
+Containerizing a maven repo and pushing it to ecr and then deploying it to fargate cluster
+
+1. clone repo
+2. install java* , maven, git
+3. inside repo, run - mvn package
+4. run 4 push commands from ecr in cloned repo
+security group.
+5. Then repeat all the steps of "Deploy an nginx container to a fargate cluster and expose it to internet".
+
+
+
+
+
+
+replicaset and deploy it to internet, and saling it
+
+1. create eks cluster
+install metrics server for autoscaling
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+create a directory
+make replicaset yaml file:
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: nginx-replicaset
+  labels:
+    app: nginx
+spec:
+  # modify replicas according to your case
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+apply the replicaset -> kubectl apply -f nginx-replicaset.yaml
+
+Verify:
+- `kubectl get replicaset` (should show `web-app-replicaset` with 1/1 pods).
+- `kubectl get pods` (should show 1 pod running).
+
+
+
+Now we will expose the replicaset with a service
+vim service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-service
+spec:
+  selector:
+    app: nginx  # Matches the ReplicaSet’s selector
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer  # Use NodePort for local clusters like Minikube
+
+
+kubectl apply -f service.yaml
+kubectl get svc -> url
+
+Now Set Up Horizontal Pod Autoscaler (HPA)
+
+vim hpa.yaml
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler                                                                                                        metadata:
+  name: web-app-hpa
+spec:
+  scaleTargetRef:                                                                                                                        apiVersion: apps/v1                                                                                                                  kind: ReplicaSet  # Targeting ReplicaSet directly
+    name: nginx-replicaset                                                                                                             minReplicas: 1                                                                                                                       maxReplicas: 10  # Maximum replicas to scale to
+  metrics:                                                                                                                             - type: Resource                                                                                                                       resource:
+      name: cpu                                                                                                                            target:                                                                                                                                type: Utilization
+        averageUtilization: 50  # Scale up if average CPU > 50%                                                                      
+
+
+
+
+
+kubectl apply -f hpa.yaml
+kubectl get hpa
+
+Generate load to test scaling (e.g., using `hey` or `ab`):
+
+
+Verify replicas: `kubectl get replicaset
+
+ yum install httpd-tools
+
+ab -n 10000 -c 100 http://abf1d0b25c998443ebbda26a4adade88-1322233573.us-east-1.elb.amazonaws.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ansible - setup httpd server and copy fstab from worker node to remote server
+
+setup ansible in 3 machines - 2 workers and 1 master
+
+Now in control pane ->
+
+---
+- name: Fetch fstab from worker1
+  hosts: worker1
+  become: yes
+  tasks:
+    - name: Fetch fstab file from worker1
+      fetch:
+        src: /etc/fstab
+        dest: /tmp/fstab_worker1
+        flat: yes
+      become: yes
+
+- name: Copy fstab to worker2
+  hosts: worker2
+  become: yes
+  tasks:
+    - name: Ensure destination directory exists on worker2
+      file:
+        path: /backup/fstab_folder
+        state: directory
+        mode: '0755'
+      become: yes
+
+    - name: Copy fstab file to worker2
+      copy:
+        src: /tmp/fstab_worker1
+        dest: /backup/fstab_folder/fstab
+        mode: '0644'
+      become: yes
+
+    - name: Clean up temporary file on control node
+      delegate_to: localhost
+      file:
+        path: /tmp/fstab_worker1
+        state: absent
+
+
+Now check in worker2, /backup
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ansible get users
+
+Cafter ansible setup in 3 machines, copy user code from sir's ansible repo -> Chapter 5 - Loops in Ansible/users-loop.yml -> users will be created in host machines
+Now to check users -> ssh worker1 'cut -d: -f1 /etc/passwd | grep -E "sanjaya|drcula|iraonman"'
+ssh worker2 'cut -d: -f1 /etc/passwd | grep -E "sanjaya|drcula|iraonman"'
+
+
+
+
+
+
+
+
+
+Creating ec2 instance using ansible
+
+1. Setup ansible with 1 master only
+2. yum install unzip -y
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+create iam user
+aws configure
+yum install python3
+yum install pip -y
+#install pip install botocore
+#install pip install boto3
+
+aws ec2 describe-regions
+
+Create inventory.ini ->
+
+[localhost]
+localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
+
+create creds.yaml
+
+---
+aws_access_key: YOUR_AWS_ACCESS_KEY_ID
+aws_secret_key: YOUR_AWS_SECRET_ACCESS_KEY
+
+
+
+create create-aws-ec2.yaml ->
+
+---
+- name: creating ec2 instance
+  hosts: localhost
+  vars_files:
+    - creds.yaml
+  tasks:
+    - name: creating Ec2 instance via Ansible
+      amazon.aws.ec2_instance:
+        name: k8s-master
+        instance_type: t3.micro
+        image_id: ami-00ca32bbc84273381
+        vpc_subnet_id: subnet-00f9c0eb863560b7c
+        security_group: sg-0bb7891bd30c0f817
+        key_name: 9sepkeya
+        region: us-east-1
+        count: 1
+        state: present
+
+
+ansible-playbook create-aws-ec2.yaml -i inventory.ini
+
+
+
+
+
+in case of custom vpc using terraform, use new custom vpc yaml file from sir's terracode repo. Then run ssh-keygen on terraform machine and copy public key and paste it in key pair in yaml file for vpc code. Now db-server and web-server will be created. web-server can be accessed in terraform machine. For running db server, copy pvt key from terra machine, run web server in it and vim <keyname> -> paste private key. then run -> chmod 600 <key-name> -> Then run dn-server on web-server which in itself running in terra machine. When db machine accessed, try accessing google by ping google. It would show outgoing network but not ingoing.
+
